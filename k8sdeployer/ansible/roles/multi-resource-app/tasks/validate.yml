@@ -1,0 +1,74 @@
+---
+- name: Set default app_name
+  set_fact:
+    app_name: "{{ app_name | default('multi-resource-app') }}"
+
+- name: Check if multi-resource-app deployment exists
+  k8s_info:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    kind: Deployment
+    namespace: "{{ namespace }}"
+    name: "{{ app_name }}"
+  register: deployment
+
+- name: Check if multi-resource-app service exists
+  k8s_info:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    kind: Service
+    namespace: "{{ namespace }}"
+    name: "{{ app_name }}"
+  register: service
+
+- name: Check if multi-resource-app configmap exists
+  k8s_info:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    kind: ConfigMap
+    namespace: "{{ namespace }}"
+    name: "{{ app_name }}-config"
+  register: configmap
+
+- name: Check if multi-resource-app secret exists
+  k8s_info:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    kind: Secret
+    namespace: "{{ namespace }}"
+    name: "{{ app_name }}-secret"
+  register: secret
+
+- name: Check if pod is running
+  k8s_info:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    kind: Pod
+    namespace: "{{ namespace }}"
+    label_selectors:
+      - app={{ app_name }}
+  register: pods
+
+- name: Validate all resources exist
+  assert:
+    that:
+      - deployment.resources | length > 0
+      - service.resources | length > 0
+      - configmap.resources | length > 0
+      - secret.resources | length > 0
+      - pods.resources | length > 0
+    fail_msg: "Not all multi-resource-app resources are present"
+    success_msg: "All multi-resource-app resources validated successfully"
+
+- name: Validate pod is running
+  assert:
+    that:
+      - pods.resources[0].status.phase == "Running"
+      - pods.resources[0].status.containerStatuses[0].ready == true
+    fail_msg: "Multi-resource-app pod is not running or ready"
+    success_msg: "Multi-resource-app pod is running and ready"

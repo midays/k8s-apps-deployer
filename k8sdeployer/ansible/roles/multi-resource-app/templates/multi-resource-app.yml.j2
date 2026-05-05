@@ -1,0 +1,169 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ app_name }}-secret
+  namespace: {{ namespace }}
+  labels:
+    app: {{ app_name }}
+type: Opaque
+data:
+  # username: admin (base64 encoded)
+  username: YWRtaW4=
+  # password: secret123 (base64 encoded)
+  password: c2VjcmV0MTIz
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ app_name }}-config
+  namespace: {{ namespace }}
+  labels:
+    app: {{ app_name }}
+data:
+  app.name: "{{ app_name }}"
+  app.environment: "{{ app_environment | default('production') }}"
+  app.version: "{{ app_version | default('1.0.0') }}"
+  nginx.conf: |
+    server {
+        listen 8080;
+        server_name localhost;
+
+        location / {
+            root   /usr/share/nginx/html;
+            index  index.html index.htm;
+        }
+
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   /usr/share/nginx/html;
+        }
+    }
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Multi Resource App</title>
+    </head>
+    <body>
+        <h1>Multi Resource App - {{ app_name }}</h1>
+        <p>Environment: {{ app_environment | default('production') }}</p>
+        <p>Version: {{ app_version | default('1.0.0') }}</p>
+        <p>This app demonstrates all 4 K8s resource types:</p>
+        <ul>
+            <li>✅ Deployment</li>
+            <li>✅ Service</li>
+            <li>✅ ConfigMap</li>
+            <li>✅ Secret</li>
+        </ul>
+    </body>
+    </html>
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ app_name }}
+  namespace: {{ namespace }}
+  labels:
+    app: {{ app_name }}
+spec:
+  type: {{ service_type | default('ClusterIP') }}
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+{% if service_type | default('ClusterIP') == 'NodePort' %}
+    nodePort: {{ node_port | default(30090) }}
+{% endif %}
+  selector:
+    app: {{ app_name }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ app_name }}
+  namespace: {{ namespace }}
+  labels:
+    app: {{ app_name }}
+spec:
+  replicas: {{ replicas | default(1) }}
+  selector:
+    matchLabels:
+      app: {{ app_name }}
+  template:
+    metadata:
+      labels:
+        app: {{ app_name }}
+    spec:
+      containers:
+      - name: nginx
+        image: {{ nginx_image | default('nginxinc/nginx-unprivileged:1.25-alpine') }}
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: APP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: {{ app_name }}-config
+              key: app.name
+        - name: APP_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: {{ app_name }}-config
+              key: app.environment
+        - name: APP_VERSION
+          valueFrom:
+            configMapKeyRef:
+              name: {{ app_name }}-config
+              key: app.version
+        - name: USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ app_name }}-secret
+              key: username
+        - name: PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ app_name }}-secret
+              key: password
+        volumeMounts:
+        - name: config-volume
+          mountPath: /usr/share/nginx/html/index.html
+          subPath: index.html
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+        resources:
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config-volume
+        configMap:
+          name: {{ app_name }}-config
+          items:
+          - key: index.html
+            path: index.html
+      - name: nginx-config
+        configMap:
+          name: {{ app_name }}-config
+          items:
+          - key: nginx.conf
+            path: default.conf

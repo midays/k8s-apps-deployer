@@ -1,0 +1,50 @@
+---
+- name: Set default app_name
+  set_fact:
+    app_name: "{{ app_name | default('multi-resource-app') }}"
+
+- name: Ensure namespace exists
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ namespace }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+  when: non_admin_user == false
+
+- name: Allow namespace to settle
+  pause:
+    seconds: 3
+
+- name: Create multi-resource-app resources
+  k8s:
+    state: present
+    definition: "{{ item }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+  loop: "{{ lookup('template', 'multi-resource-app.yml.j2') | from_yaml_all | list }}"
+
+- name: Wait for multi-resource-app pod to be ready
+  k8s_info:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    kind: Pod
+    namespace: "{{ namespace }}"
+    label_selectors:
+      - app={{ app_name }}
+    field_selectors:
+      - status.phase=Running
+  register: apppod
+  until: >-
+    apppod.resources|default([])|length > 0 and
+    apppod.resources |
+    json_query('[?status.containerStatuses[0].ready == `true`]') |
+    length == (apppod.resources | length)
+  retries: 30
+  delay: 5
