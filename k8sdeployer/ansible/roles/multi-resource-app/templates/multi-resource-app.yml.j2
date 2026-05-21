@@ -142,6 +142,11 @@ spec:
           requests:
             memory: "64Mi"
             cpu: "50m"
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          seccompProfile:
+            type: RuntimeDefault
         livenessProbe:
           httpGet:
             path: /
