@@ -1,0 +1,25 @@
+---
+- name: Set default app_name
+  set_fact:
+    app_name: "{{ app_name | default('multi-resource-app') }}"
+
+- name: Delete multi-resource-app resources
+  k8s:
+    state: absent
+    definition: "{{ item }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+  loop: "{{ lookup('template', 'multi-resource-app.yml.j2') | from_yaml_all | list }}"
+  ignore_errors: yes
+
+- name: Delete namespace (admin only)
+  k8s:
+    state: absent
+    kind: Namespace
+    name: "{{ namespace }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+  when: non_admin_user == false
+  ignore_errors: yes
