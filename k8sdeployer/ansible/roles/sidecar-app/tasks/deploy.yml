@@ -1,0 +1,28 @@
+---
+- name: Ensure namespace exists
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ namespace }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+  when: non_admin_user == false
+
+- name: Deploy sidecar app
+  k8s:
+    state: present
+    namespace: "{{ namespace }}"
+    definition: "{{ lookup('template', 'deployment.yml.j2') | from_yaml_all | list }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+  register: res
+  retries: 12
+  delay: 10
+  until: res is success
+  vars:
+    replicas: "{{ default_replicas }}"

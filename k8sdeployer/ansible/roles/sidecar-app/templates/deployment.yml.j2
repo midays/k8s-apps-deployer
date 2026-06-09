@@ -1,0 +1,26 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ sidecar_app_name }}-deployment"
+  namespace: "{{ namespace }}"
+  labels:
+    name: "{{ sidecar_app_name }}"
+spec:
+  replicas: {{ replicas }}
+  selector:
+    matchLabels:
+      app: "{{ sidecar_app_name }}"
+  template:
+    metadata:
+      labels:
+        app: "{{ sidecar_app_name }}"
+    spec:
+      containers:
+      - name: main
+        image: quay.io/migqe/nginx-unprivileged:1.23
+        ports:
+        - containerPort: {{ main_port }}
+      - name: sidecar
+        image: busybox:latest
+        command: ["sh", "-c", "while true; do echo sidecar running; sleep 10; done"]
