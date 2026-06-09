@@ -21,5 +21,5 @@
     host: "{{ server }}"
     api_key: "{{ token }}"
     verify_ssl: "{{ verify_ssl }}"
-  when: non_admin_user == false
+  when: not (non_admin_user | default(false) | bool)
   ignore_errors: yes
