@@ -1,0 +1,9 @@
+---
+- include_tasks: deploy.yml
+  when: with_deploy | bool
+
+- include_tasks: cleanup.yml
+  when: with_cleanup | bool
+
+- include_tasks: validate.yml
+  when: with_validate | bool

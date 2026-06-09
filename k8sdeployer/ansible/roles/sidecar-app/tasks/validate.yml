@@ -1,0 +1,23 @@
+---
+- name: Wait for sidecar-app deployment to be ready
+  k8s_info:
+    kind: Deployment
+    namespace: "{{ namespace }}"
+    name: "{{ sidecar_app_name }}-deployment"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+  register: deployment_info
+  retries: 12
+  delay: 10
+  until:
+    - deployment_info.resources | length > 0
+    - deployment_info.resources[0].status.readyReplicas is defined
+    - deployment_info.resources[0].status.readyReplicas == deployment_info.resources[0].spec.replicas
+
+- name: Verify both containers are present
+  assert:
+    that:
+      - deployment_info.resources[0].spec.template.spec.containers | length == 2
+    fail_msg: "Expected 2 containers (main + sidecar), found {{ deployment_info.resources[0].spec.template.spec.containers | length }}"
+    success_msg: "Both containers present"
