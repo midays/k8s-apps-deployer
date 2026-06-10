@@ -1,0 +1,11 @@
+---
+- name: Remove sidecar app deployment
+  k8s:
+    state: absent
+    namespace: "{{ namespace }}"
+    definition: "{{ lookup('template', 'deployment.yml.j2') | from_yaml_all | list }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+  vars:
+    replicas: "{{ default_replicas }}"

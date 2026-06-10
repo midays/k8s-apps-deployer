@@ -1,0 +1,9 @@
+---
+sidecar_app_name: sidecar-app
+default_replicas: 1
+main_port: 8080
+non_admin_user: false
+
+with_cleanup: false
+with_deploy: false
+with_validate: false
