@@ -84,7 +84,7 @@ class ClusterConnection:
         """
         try:
             import yaml
-            kube_file = kubeconfig or os.path.expanduser('~/.kube/config')
+            kube_file = kubeconfig or os.environ.get('KUBECONFIG') or os.path.expanduser('~/.kube/config')
             with open(kube_file) as f:
                 raw_config = yaml.safe_load(f)
 
