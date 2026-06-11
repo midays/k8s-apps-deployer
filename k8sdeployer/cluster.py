@@ -1,6 +1,7 @@
 """Cluster connection module supporting both kubeconfig and service account token authentication"""
 import logging
 import ssl
+import os
 from typing import Optional
 
 import kubernetes
@@ -49,36 +50,60 @@ class ClusterConnection:
 
             configuration = Configuration.get_default_copy()
 
-            # Apply verify_ssl setting with proper precedence:
-            # CLI flag (--insecure-skip-tls-verify) > Kubeconfig setting > Default
             if not self.verify_ssl:
-                # CLI flag explicitly set to skip verification - override kubeconfig
                 configuration.verify_ssl = False
 
-            # Update instance variable to match actual configuration
-            # (important for Ansible which reads self.cluster.verify_ssl)
-            # This will be either:
-            # - False if CLI flag was set, or
-            # - Whatever load_kube_config() set based on kubeconfig (respects insecure-skip-tls-verify)
             self.verify_ssl = configuration.verify_ssl
-
             self.client = DynamicClient(kubernetes.client.ApiClient(configuration))
 
-            # Extract token from kubeconfig
-            api_key = configuration.get_api_key_with_prefix('authorization')
-            if api_key:
-                self.token = api_key.replace('Bearer', '').strip()
+            # Extract token directly from the raw kubeconfig auth info.
+            # `get_api_key_with_prefix` does not work for OCP OAuth tokens
+            # because they are stored under `token` in the auth info, not
+            # as a pre-built Authorization header value.
+            self.token = self._extract_token_from_kubeconfig(kubeconfig, context)
+            if not self.token:
+                # Fallback: try the API client header (works for cert-based kubeconfigs e.g. minikube)
+                api_key = configuration.get_api_key_with_prefix('authorization')
+                if api_key:
+                    self.token = api_key.replace('Bearer', '').strip()
 
-            # Get server URL
             self.server = configuration.host
-
             logger.info(f"Connected to cluster: {self.server}")
-
-            # Validate connectivity early to fail fast on SSL errors
             self._validate_connection()
         except Exception as e:
             logger.error(f"Failed to connect with kubeconfig: {e}")
             raise
+    
+    def _extract_token_from_kubeconfig(self, kubeconfig: Optional[str] = None, context: Optional[str] = None) -> Optional[str]:
+        """Extract the OAuth/bearer token directly from the kubeconfig auth info.
+        
+        This is needed for OCP clusters where the OAuth token is stored under
+        the `token` field in the kubeconfig user entry, which is not accessible
+        via `get_api_key_with_prefix`. Falls back gracefully for cert-based
+        kubeconfigs (e.g. minikube) which have no token field.
+        """
+        try:
+            import yaml
+            kube_file = kubeconfig or os.environ.get('KUBECONFIG') or os.path.expanduser('~/.kube/config')
+            with open(kube_file) as f:
+                raw_config = yaml.safe_load(f)
+
+            # Resolve the context
+            ctx_name = context or raw_config.get('current-context')
+            ctx = next((c['context'] for c in raw_config.get('contexts', []) if c['name'] == ctx_name), None)
+            if not ctx:
+                return None
+
+            auth_info_name = ctx.get('user')
+            auth_info = next((u['user'] for u in raw_config.get('users', []) if u['name'] == auth_info_name), None)
+            if not auth_info:
+                return None
+
+            return auth_info.get('token')
+        except Exception as e:
+            logger.warning(f"Could not extract token from kubeconfig: {e}")
+            return None
+
     
     def connect_with_token(self, server: str, token: str):
         """Connect using service account token"""
