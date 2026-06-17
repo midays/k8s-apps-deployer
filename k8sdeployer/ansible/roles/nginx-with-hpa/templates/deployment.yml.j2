@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: List
+metadata: {}
+items:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: {{ app_name }}-deployment
+    labels:
+      name: {{ app_name }}
+    namespace: {{ namespace }}
+  spec:
+    replicas: {{ replicas }}
+    selector:
+      matchLabels:
+        app: {{ app_name }}
+    template:
+      metadata:
+        labels:
+          app: {{ app_name }}
+      spec:
+        containers:
+        - image: quay.io/migqe/nginx-unprivileged:1.23
+          name: {{ app_name }}
+          ports:
+          - containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+- apiVersion: v1
+  kind: Service
+  metadata:
+    labels:
+      app: {{ app_name }}
+    name: my-{{ app_name }}
+    namespace: {{ namespace }}
+  spec:
+    ports:
+    - port: 8081
+      targetPort: 8080
+    selector:
+      app: {{ app_name }}
+- apiVersion: autoscaling/v2
+  kind: HorizontalPodAutoscaler
+  metadata:
+    name: {{ app_name }}-hpa
+    namespace: {{ namespace }}
+    labels:
+      app: {{ app_name }}
+  spec:
+    scaleTargetRef:
+      apiVersion: apps/v1
+      kind: Deployment
+      name: {{ app_name }}-deployment
+    minReplicas: {{ hpa_min_replicas }}
+    maxReplicas: {{ hpa_max_replicas }}
+    metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ hpa_cpu_utilization }}

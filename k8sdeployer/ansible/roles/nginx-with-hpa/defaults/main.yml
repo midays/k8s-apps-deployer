@@ -1,0 +1,16 @@
+---
+num_pods: 1
+default_replicas: "{{ num_pods }}"
+default_app_name: nginx-with-hpa
+
+# Container listens on this port (see deployment template)
+nginx_http_port: 8080
+
+# HPA settings
+hpa_min_replicas: 1
+hpa_max_replicas: 5
+hpa_cpu_utilization: 50
+
+with_cleanup: false
+with_deploy: false
+with_validate: false
