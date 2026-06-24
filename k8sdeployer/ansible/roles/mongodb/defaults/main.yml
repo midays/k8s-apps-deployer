@@ -7,7 +7,7 @@ mongodb_version: latest
 storage_size: 2Gi
 storage_class: ""
 accessmode: ReadWriteOnce
-mongodb_image: mongo:latest
+mongodb_image: quay.io/migqe/mongo:7
 
 # Set this value to true if using a non cluster admin user
 non_admin_user: false
