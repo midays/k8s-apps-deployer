@@ -3,7 +3,7 @@ app_name: mysql
 storage_size: 2Gi
 storage_class: ""
 accessmode: ReadWriteOnce
-mysql_image: quay.io/migqe/mysql:8.0
+mysql_image: quay.io/migqe/rhel8-mariadb:10.5
 mysql_version: "8.0"
 pause_after_md5_hashing_seconds: 30
 
