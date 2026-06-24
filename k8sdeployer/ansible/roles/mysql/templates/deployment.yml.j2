@@ -29,7 +29,7 @@ spec:
 {% endif %}
     spec:
       containers:
-      - image: {{ mysql_image | default('quay.io/migqe/rhel8-mariadb:10.5') }}
+      - image: {% if has_scc is defined and has_scc %}quay.io/migqe/rhel8-mariadb:10.5{% else %}{{ mysql_image | default('quay.io/migqe/mysql:8.0') }}{% endif %}
         name: {{ app_name }}
         env:
         - name: MYSQL_USER
