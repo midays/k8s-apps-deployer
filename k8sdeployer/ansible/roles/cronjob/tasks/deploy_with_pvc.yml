@@ -20,6 +20,17 @@
     api_key: "{{ token }}"
     verify_ssl: "{{ verify_ssl }}"
 
+- name: Deploy cronjob with PVC mount
+  k8s:
+    state: present
+    definition: "{{ lookup('template', 'cronjob_with_pvc.yml.j2') | from_yaml }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+  vars:
+    app_name: "{{ ext_app_name }}"
+    docker_image: "{{ external_image_name }}"
+
 - name: Wait for PVC to be bound
   k8s_info:
     host: "{{ server }}"
@@ -34,14 +45,3 @@
     pvc_info.resources[0].status.phase == "Bound"
   retries: 20
   delay: 5
-
-- name: Deploy cronjob with PVC mount
-  k8s:
-    state: present
-    definition: "{{ lookup('template', 'cronjob_with_pvc.yml.j2') | from_yaml }}"
-    host: "{{ server }}"
-    api_key: "{{ token }}"
-    verify_ssl: "{{ verify_ssl }}"
-  vars:
-    app_name: "{{ ext_app_name }}"
-    docker_image: "{{ external_image_name }}"
