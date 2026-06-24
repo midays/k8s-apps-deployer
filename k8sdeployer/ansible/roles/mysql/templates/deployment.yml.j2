@@ -58,8 +58,10 @@ spec:
         resources:
           limits:
             memory: 512Mi
+{% if has_scc is not defined or not has_scc %}
         securityContext:
           runAsUser: 27
+{% endif %}
         volumeMounts:
         - name: {{ app_name }}-data
           mountPath: /var/lib/mysql
@@ -72,6 +74,8 @@ spec:
       - name: {{ app_name }}-data1
         persistentVolumeClaim:
           claimName: {{ app_name }}-data1
+{% if has_scc is not defined or not has_scc %}
       securityContext:
         fsGroup: 27
         runAsUser: 27
+{% endif %}
