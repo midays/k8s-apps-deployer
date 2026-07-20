@@ -1,5 +1,6 @@
 ---
 src_storage_class: "default"
+deployment_api: "apps/v1"
 
 # Set this value to true if using a non cluster admin user
 non_admin_user: false

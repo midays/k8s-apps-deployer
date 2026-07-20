@@ -36,11 +36,16 @@
   retries: 30
 
 - name: Wait until mysql database initialization is done
-  ansible.builtin.command: >
-    kubectl logs {{ (mysql_pod.resources|first).metadata.name }}
-    -n {{ namespace }}
+  kubernetes.core.k8s_exec:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    namespace: "{{ namespace }}"
+    pod: "{{ (mysql_pod.resources|first).metadata.name }}"
+    container: mysql
+    command: /bin/sh -c "mysql -uroot -pR00t@123 -e \"USE cities; SHOW TABLES;\""
   register: result
-  until: result.stdout is search('socket:.*sock.*port:.*3306  MySQL Community Server \\(GPL\\)')
+  until: result.rc == 0 and (result.stdout is search('Tables_in_cities')) and (result.stdout is search('cities'))
   retries: 15
   delay: 40
   changed_when: false
