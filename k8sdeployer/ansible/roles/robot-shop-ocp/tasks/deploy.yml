@@ -7,23 +7,26 @@
       kind: Namespace
       metadata:
         name: "{{ namespace }}"
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
   when: non_admin_user == false
 
 - name: Deploy robot shop sample application
   k8s:
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
     state: present
     definition: "{{ lookup('template', 'manifest.yml') | from_yaml_all | list }}"
 
 - name: Wait for mysql pod to start running
   k8s_info:
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
     kind: Pod
     namespace: "{{ namespace }}"
@@ -37,8 +40,9 @@
 
 - name: Wait until mysql database initialization is done
   kubernetes.core.k8s_exec:
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
     namespace: "{{ namespace }}"
     pod: "{{ (mysql_pod.resources|first).metadata.name }}"

@@ -2,7 +2,7 @@
 kind: Namespace
 apiVersion: v1
 metadata:
-  name: robot-shop
+  name: {{ namespace }}
 ---
 apiVersion: {{ deployment_api }}
 kind: Deployment
@@ -13,11 +13,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      service: cart
-{% endif %}
   selector:
     matchLabels:
       service: cart
@@ -69,11 +64,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      service: catalogue
-{% endif %}
   selector:
     matchLabels:
       service: catalogue
@@ -127,11 +117,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      serivce: dispatch
-{% endif %}
   selector:
     matchLabels:
       service: dispatch
@@ -185,11 +170,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      service: mongodb
-{% endif %}
   selector:
     matchLabels:
       service: mongodb
@@ -345,11 +325,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      service: payment
-{% endif %}
   selector:
     matchLabels:
       service: payment
@@ -404,11 +379,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      service: rabbitmq
-{% endif %}
   selector:
     matchLabels:
       service: rabbitmq
@@ -464,11 +434,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      service: ratings
-{% endif %}
   selector:
     matchLabels:
       service: ratings
@@ -517,11 +482,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      service: redis
-{% endif %}
   selector:
     matchLabels:
       service: redis
@@ -592,11 +552,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      service: shipping
-{% endif %}
   selector:
     matchLabels:
       service: shipping
@@ -646,11 +601,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      service: user
-{% endif %}
   selector:
     matchLabels:
       service: user
@@ -705,11 +655,6 @@ metadata:
   namespace: {{ namespace }}
 spec:
   replicas: 1
-{% if deployment_api == 'apps/v1' %}
-  selector:
-    matchLabels:
-      service: web
-{% endif %}
   selector:
     matchLabels:
       service: web
@@ -735,6 +680,7 @@ spec:
       restartPolicy: Always
 
 ---
+{% if is_openshift | default(false) %}
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
@@ -747,6 +693,7 @@ spec:
   to:
     kind: Service
     name: web
+{% endif %}
 
 
 
