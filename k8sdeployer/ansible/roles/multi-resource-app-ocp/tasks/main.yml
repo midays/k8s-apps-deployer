@@ -1,12 +1,12 @@
 ---
-- name: Clean up application
+- name: Clean up multi-resource-app-ocp
   import_tasks: cleanup.yml
   when: with_cleanup | default(false) | bool
 
-- name: Deploy application
+- name: Deploy multi-resource-app-ocp
   import_tasks: deploy.yml
   when: with_deploy | default(false) | bool
 
-- name: Validate application
+- name: Validate multi-resource-app-ocp
   import_tasks: validate.yml
   when: with_validate | default(false) | bool
