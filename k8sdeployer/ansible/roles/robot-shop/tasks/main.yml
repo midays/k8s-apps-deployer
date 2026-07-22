@@ -10,3 +10,4 @@
 - name: Validate application
   import_tasks: validate.yml
   when: with_validate | default(false) | bool
+
