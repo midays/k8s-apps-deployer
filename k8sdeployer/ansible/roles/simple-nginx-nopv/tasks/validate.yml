@@ -36,7 +36,15 @@
     label_selectors:
       - app={{ default_app_name }}
   register: nginx_route
-  ignore_errors: true
+  when: is_openshift | default(false) | bool
+
+- name: Ensure route exists on OpenShift
+  assert:
+    that:
+      - nginx_route.resources | default([]) | length > 0
+    fail_msg: "OpenShift route for {{ default_app_name }} is missing"
+    success_msg: "OpenShift route exists for {{ default_app_name }}"
+  when: is_openshift | default(false) | bool
 
 # OpenShift: external URL via Route
 - name: Access the site via OpenShift Route
@@ -48,14 +56,18 @@
   retries: 30
   delay: 10
   until: route_probe is success
-  when: nginx_route.resources | default([]) | length > 0
+  when:
+    - is_openshift | default(false) | bool
+    - nginx_route.resources | default([]) | length > 0
 
 - name: Debug — OpenShift Route probe
   ansible.builtin.debug:
     msg:
       status: "{{ route_probe.status | default('n/a') }}"
       url: "http://{{ nginx_route.resources[0].spec.host }}/"
-  when: nginx_route.resources | default([]) | length > 0
+  when:
+    - is_openshift | default(false) | bool
+    - nginx_route.resources | default([]) | length > 0
 
 # Kind / vanilla K8s: no Route — probe with curl inside the pod (image may not have wget).
 # -s = no progress meter; -f = fail on non-2xx; omit -o /dev/null so response body (e.g. HTML) is stdout.
@@ -72,7 +84,7 @@
   until: curl_probe is succeeded
   retries: 30
   delay: 10
-  when: nginx_route.resources | default([]) | length == 0
+  when: not (is_openshift | default(false) | bool)
 
 - name: Debug — in-pod curl probe (HTTP body in response_body)
   ansible.builtin.debug:
@@ -80,7 +92,7 @@
       rc: "{{ curl_probe.rc | default('n/a') }}"
       response_body: "{{ curl_probe.stdout | default('') }}"
       stderr: "{{ curl_probe.stderr | default('') }}"
-  when: nginx_route.resources | default([]) | length == 0
+  when: not (is_openshift | default(false) | bool)
 
 # No access.log check: many container nginx images log to stdout, so /var/log/nginx/access.log
 # can stay empty and the old "until stdout non-empty" loop looked hung. curl -sf already

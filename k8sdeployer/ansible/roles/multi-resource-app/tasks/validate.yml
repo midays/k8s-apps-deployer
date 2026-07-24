@@ -54,6 +54,17 @@
       - app={{ app_name }}
   register: pods
 
+- name: Check if multi-resource-app route exists (OpenShift only)
+  k8s_info:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    kind: Route
+    namespace: "{{ namespace }}"
+    name: "{{ app_name }}"
+  register: app_route
+  when: is_openshift | default(false) | bool
+
 - name: Validate all resources exist
   assert:
     that:
@@ -64,6 +75,25 @@
       - pods.resources | length > 0
     fail_msg: "Not all multi-resource-app resources are present"
     success_msg: "All multi-resource-app resources validated successfully"
+
+- name: Validate OpenShift route exists
+  assert:
+    that:
+      - app_route.resources | default([]) | length > 0
+    fail_msg: "OpenShift route for {{ app_name }} is missing"
+    success_msg: "OpenShift route exists for {{ app_name }}"
+  when: is_openshift | default(false) | bool
+
+- name: Validate OpenShift route serves HTTP
+  uri:
+    url: "http://{{ app_route.resources[0].spec.host }}/"
+    method: GET
+    status_code: 200
+  register: route_probe
+  retries: 30
+  delay: 5
+  until: route_probe is success
+  when: is_openshift | default(false) | bool
 
 - name: Validate pod is running
   assert:

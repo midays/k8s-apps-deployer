@@ -1,8 +1,9 @@
 ---
 - name: Check robot-shop application resources status
   k8s_info:
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
     kind: Pod
     namespace: "{{ namespace }}"
@@ -28,20 +29,23 @@
 
 - name: Obtain robot-shop application route (OpenShift only)
   k8s_info:
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
     kind: Route
     namespace: "{{ namespace }}"
     name: "front-end"
   register: robot_shop_route
-  ignore_errors: yes
+  when: is_openshift | default(false) | bool
 
 - debug:
     msg: "Will check robot-shop application at http://{{ robot_shop_route.resources[0].spec.host }}"
-  when: robot_shop_route.resources | length > 0
+  when:
+    - is_openshift | default(false) | bool
+    - robot_shop_route.resources | default([]) | length > 0
 
-- name: Verify that robot-shop application is available
+- name: Verify that robot-shop application is available through Route
   uri:
     url: "http://{{ robot_shop_route.resources[0].spec.host }}"
     method: GET
@@ -50,4 +54,40 @@
   until: "'Robot' in uri.content"
   retries: 6
   delay: 10
-  when: robot_shop_route.resources | length > 0
+  when:
+    - is_openshift | default(false) | bool
+    - robot_shop_route.resources | default([]) | length > 0
+
+- name: Get web pod for in-cluster probe (non-OpenShift)
+  k8s_info:
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
+    verify_ssl: "{{ verify_ssl }}"
+    kind: Pod
+    namespace: "{{ namespace }}"
+    label_selectors:
+      - service=web
+    field_selectors:
+      - status.phase=Running
+  register: web_pod
+  until: web_pod.resources | default([]) | length > 0
+  retries: 20
+  delay: 5
+  when: not (is_openshift | default(false) | bool)
+
+- name: Verify robot-shop web app responds from inside pod (non-OpenShift)
+  kubernetes.core.k8s_exec:
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
+    verify_ssl: "{{ verify_ssl }}"
+    namespace: "{{ namespace }}"
+    pod: "{{ (web_pod.resources | first).metadata.name }}"
+    container: web
+    command: /bin/sh -c "curl -sSf http://127.0.0.1:8080/"
+  register: web_probe
+  until: web_probe.rc == 0 and ('Robot' in (web_probe.stdout | default('')))
+  retries: 10
+  delay: 10
+  when: not (is_openshift | default(false) | bool)
