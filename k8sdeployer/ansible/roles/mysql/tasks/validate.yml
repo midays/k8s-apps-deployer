@@ -71,7 +71,7 @@
     container: "{{ app_name }}"
     command: /bin/sh -c "test -S /var/lib/mysql/mysql.sock"
   register: mysql_ready
-  until: mysql_ready.rc == 0
+  until: mysql_ready.rc is defined and mysql_ready.rc == 0
   retries: 30
   delay: 5
 
@@ -95,7 +95,7 @@
     container: "{{ app_name }}"
     command: /bin/bash -c "mysql -uroot MYSQL_DATABASE -e 'select * from authors'"
   register: query_result
-  until: query_result.rc == 0 and (query_result.stdout_lines | length == 101)
+  until: query_result.rc is defined and query_result.rc == 0 and (query_result.stdout_lines | length == 101)
   retries: 5
   delay: 5
 
@@ -118,7 +118,7 @@
     container: "{{ app_name }}"
     command: /bin/sh -c "cd /test-data; [ \"$(md5sum test1)\" = \"$(cat test1.md5)\" ]"
   register: checksum_result
-  until: checksum_result.rc == 0
+  until: checksum_result.rc is defined and checksum_result.rc == 0
   retries: 5
   delay: 5
 
@@ -134,6 +134,6 @@
   debug:
     msg:
       pod_validation: "passed"
-      mysql_ready_validation: "{{ mysql_ready.rc == 0 }}"
-      query_validation: "{{ query_result.rc == 0 and (query_result.stdout_lines | length == 101) }}"
-      checksum_validation: "{{ checksum_result.rc == 0 }}"
+      mysql_ready_validation: "{{ mysql_ready.rc is defined and mysql_ready.rc == 0 }}"
+      query_validation: "{{ query_result.rc is defined and query_result.rc == 0 and (query_result.stdout_lines | length == 101) }}"
+      checksum_validation: "{{ checksum_result.rc is defined and checksum_result.rc == 0 }}"
