@@ -1,0 +1,82 @@
+---
+- name: Check writer pod status
+  k8s_info:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    kind: Pod
+    namespace: "{{ namespace }}"
+    label_selectors:
+      - app={{ app_name }}
+    field_selectors:
+      - status.phase=Running
+  register: pod
+  until: >-
+    pod.resources|default([])|length > 0 and
+    pod | json_query('resources[*].status.containerStatuses[*].ready') | flatten | difference([true]) | length == 0
+  retries: 30
+  delay: 3
+
+- name: Read counter (before)
+  kubernetes.core.k8s_exec:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    namespace: "{{ namespace }}"
+    pod: "{{ (pod.resources | first).metadata.name }}"
+    container: writer
+    command: /bin/sh -c "cat {{ data_mount_path }}/{{ counter_file }}"
+  register: counter_before
+
+- name: Read log size (before)
+  kubernetes.core.k8s_exec:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    namespace: "{{ namespace }}"
+    pod: "{{ (pod.resources | first).metadata.name }}"
+    container: writer
+    command: /bin/sh -c "wc -c < {{ data_mount_path }}/{{ log_file }}"
+  register: log_size_before
+
+- name: Wait for writer to progress
+  pause:
+    seconds: 4
+
+- name: Read counter (after)
+  kubernetes.core.k8s_exec:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    namespace: "{{ namespace }}"
+    pod: "{{ (pod.resources | first).metadata.name }}"
+    container: writer
+    command: /bin/sh -c "cat {{ data_mount_path }}/{{ counter_file }}"
+  register: counter_after
+
+- name: Read log size (after)
+  kubernetes.core.k8s_exec:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    namespace: "{{ namespace }}"
+    pod: "{{ (pod.resources | first).metadata.name }}"
+    container: writer
+    command: /bin/sh -c "wc -c < {{ data_mount_path }}/{{ log_file }}"
+  register: log_size_after
+
+- name: Assert counter is advancing
+  fail:
+    msg: >-
+      Live writer is not advancing {{ data_mount_path }}/{{ counter_file }}:
+      before={{ counter_before.stdout | trim }}, after={{ counter_after.stdout | trim }}
+  when: (counter_after.stdout | trim | int) <= (counter_before.stdout | trim | int)
+
+- name: Assert live log exists and is growing
+  fail:
+    msg: >-
+      Live writer log {{ data_mount_path }}/{{ log_file }} is missing or not growing:
+      size_before={{ log_size_before.stdout | trim }}, size_after={{ log_size_after.stdout | trim }}
+  when: >-
+    (log_size_before.stdout | trim | int) <= 0 or
+    (log_size_after.stdout | trim | int) <= (log_size_before.stdout | trim | int)

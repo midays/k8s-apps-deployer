@@ -1,0 +1,71 @@
+---
+- name: Ensure namespace exists
+  k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ namespace }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+  when: non_admin_user == false
+
+- name: Create PVC
+  k8s:
+    state: present
+    definition: "{{ lookup('template', 'pvc.yml.j2') | from_yaml }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+
+- name: Deploy live writer workload
+  k8s:
+    state: present
+    definition: "{{ lookup('template', 'deployment.yml.j2') | from_yaml }}"
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+
+- name: Wait until writer pod is Ready
+  k8s_info:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    kind: Pod
+    namespace: "{{ namespace }}"
+    label_selectors:
+      - app={{ app_name }}
+    field_selectors:
+      - status.phase=Running
+  register: pod
+  until: >-
+    pod.resources|default([])|length > 0 and
+    pod | json_query('resources[*].status.containerStatuses[*].ready') | flatten | difference([true]) | length == 0
+  retries: 60
+  delay: 5
+
+- name: Wait for first write to appear on PVC
+  kubernetes.core.k8s_exec:
+    host: "{{ server }}"
+    api_key: "{{ token }}"
+    verify_ssl: "{{ verify_ssl }}"
+    namespace: "{{ namespace }}"
+    pod: "{{ (pod.resources | first).metadata.name }}"
+    container: writer
+    command: >-
+      /bin/sh -c
+      'test -s {{ data_mount_path }}/{{ counter_file }} && test -s {{ data_mount_path }}/{{ log_file }}'
+  register: first_write
+  until: first_write.rc == 0
+  retries: 30
+  delay: 2
+  failed_when: false
+
+- name: Fail if first write did not appear
+  fail:
+    msg: >-
+      Expected {{ data_mount_path }}/{{ counter_file }} and
+      {{ data_mount_path }}/{{ log_file }} to exist and be non-empty after deploy
+  when: first_write.rc != 0
