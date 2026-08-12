@@ -1,0 +1,21 @@
+---
+app_name: pvc-live-writer
+
+# Set this value to true if using a non cluster admin user
+non_admin_user: false
+
+# PVC access mode (ReadWriteOnce by default; set ReadWriteMany for live transfer e2e)
+access_mode: ReadWriteOnce
+
+storage_size: 1Gi
+write_interval_seconds: 1
+data_mount_path: /data
+counter_file: counter.txt
+log_file: live.log
+
+# Used only on non-OpenShift clusters (kind/k8s). On OpenShift, SCC assigns the UID.
+run_as_user: 1000
+
+with_cleanup: false
+with_deploy: false
+with_validate: false

@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ app_name }}
+  namespace: {{ namespace }}
+  labels:
+    app: {{ app_name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ app_name }}
+  template:
+    metadata:
+      labels:
+        app: {{ app_name }}
+    spec:
+{% if not (is_openshift | default(false) | bool) %}
+      securityContext:
+        fsGroup: {{ run_as_user }}
+        runAsUser: {{ run_as_user }}
+        runAsGroup: {{ run_as_user }}
+{% endif %}
+      containers:
+      - name: writer
+        image: quay.io/openshifttest/alpine:multiarch
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -eu
+          COUNTER=0
+          if [ -f "{{ data_mount_path }}/{{ counter_file }}" ]; then
+            COUNTER=$(cat "{{ data_mount_path }}/{{ counter_file }}" || echo 0)
+          fi
+          while true; do
+            COUNTER=$((COUNTER + 1))
+            echo "${COUNTER}" > "{{ data_mount_path }}/{{ counter_file }}"
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) counter=${COUNTER}" >> "{{ data_mount_path }}/{{ log_file }}"
+            sleep {{ write_interval_seconds }}
+          done
+        volumeMounts:
+        - name: data-volume
+          mountPath: {{ data_mount_path }}
+        securityContext:
+          runAsNonRoot: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+{% if not (is_openshift | default(false) | bool) %}
+          runAsUser: {{ run_as_user }}
+          runAsGroup: {{ run_as_user }}
+{% endif %}
+      volumes:
+      - name: data-volume
+        persistentVolumeClaim:
+          claimName: {{ app_name }}-pvc
