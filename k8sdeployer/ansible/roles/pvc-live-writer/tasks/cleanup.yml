@@ -8,8 +8,9 @@
       metadata:
         name: "{{ app_name }}"
         namespace: "{{ namespace }}"
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
 
 - name: Delete PVC
@@ -21,14 +22,16 @@
       metadata:
         name: "{{ app_name }}-pvc"
         namespace: "{{ namespace }}"
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
 
 - name: Remove namespace
   k8s:
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
     name: "{{ namespace }}"
     api_version: v1

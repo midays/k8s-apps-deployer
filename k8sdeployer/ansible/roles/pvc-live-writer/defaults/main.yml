@@ -13,6 +13,9 @@ data_mount_path: /data
 counter_file: counter.txt
 log_file: live.log
 
+# Used only on non-OpenShift clusters (kind/k8s). On OpenShift, SCC assigns the UID.
+run_as_user: 1000
+
 with_cleanup: false
 with_deploy: false
 with_validate: false

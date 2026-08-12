@@ -15,6 +15,12 @@ spec:
       labels:
         app: {{ app_name }}
     spec:
+{% if not (is_openshift | default(false) | bool) %}
+      securityContext:
+        fsGroup: {{ run_as_user }}
+        runAsUser: {{ run_as_user }}
+        runAsGroup: {{ run_as_user }}
+{% endif %}
       containers:
       - name: writer
         image: quay.io/openshifttest/alpine:multiarch
@@ -37,9 +43,17 @@ spec:
         - name: data-volume
           mountPath: {{ data_mount_path }}
         securityContext:
+          runAsNonRoot: true
           allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+              - ALL
           seccompProfile:
             type: RuntimeDefault
+{% if not (is_openshift | default(false) | bool) %}
+          runAsUser: {{ run_as_user }}
+          runAsGroup: {{ run_as_user }}
+{% endif %}
       volumes:
       - name: data-volume
         persistentVolumeClaim:

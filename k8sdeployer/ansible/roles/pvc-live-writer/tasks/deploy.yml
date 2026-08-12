@@ -7,8 +7,9 @@
       kind: Namespace
       metadata:
         name: "{{ namespace }}"
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
   when: non_admin_user == false
 
@@ -16,22 +17,25 @@
   k8s:
     state: present
     definition: "{{ lookup('template', 'pvc.yml.j2') | from_yaml }}"
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
 
 - name: Deploy live writer workload
   k8s:
     state: present
     definition: "{{ lookup('template', 'deployment.yml.j2') | from_yaml }}"
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
 
 - name: Wait until writer pod is Ready
   k8s_info:
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
     kind: Pod
     namespace: "{{ namespace }}"
@@ -48,8 +52,9 @@
 
 - name: Wait for first write to appear on PVC
   kubernetes.core.k8s_exec:
-    host: "{{ server }}"
-    api_key: "{{ token }}"
+    context: "{{ context | default(omit) }}"
+    host: "{{ server if (token | default('') | string | length) > 0 else omit }}"
+    api_key: "{{ token if (token | default('') | string | length) > 0 else omit }}"
     verify_ssl: "{{ verify_ssl }}"
     namespace: "{{ namespace }}"
     pod: "{{ (pod.resources | first).metadata.name }}"
